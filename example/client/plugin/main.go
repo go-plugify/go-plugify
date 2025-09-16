@@ -7,6 +7,8 @@ import (
 	client "github.com/chenhg5/go-portal/client"
 )
 
+var _ = client.Plugin{}
+
 var ExportPlugin = client.PluginInfo{
 	Name:        "example",
 	Description: "An example plugin",
@@ -23,8 +25,7 @@ func init() {
 		}()
 		ginCtx := c.(client.GinContext)
 		p := ExportPlugin.Plugin
-		engine := p.Dependencies.GetGinEngine().(client.GinEngine)
-		engine.ReplaceHandler("GET", "/", func(ctx context.Context) {
+		p.GetGinEngine().ReplaceHandler("GET", "/", func(ctx context.Context) {
 			ginCtx := ctx.(client.GinContext)
 			ginCtx.JSON(200, map[string]any{"message": "Hello from plugin"})
 		})

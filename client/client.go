@@ -31,6 +31,10 @@ func (p *Plugin) Load(dependencies any) {
 	p.Dependencies = dependencies.(Dependencies)
 }
 
+func (p *Plugin) GetGinEngine() GinEngine {
+	return p.Dependencies.GetGinEngine().(GinEngine)
+}
+
 type Dependencies interface {
 	GetGinEngine() any
 }
