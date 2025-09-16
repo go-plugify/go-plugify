@@ -1,0 +1,10 @@
+*.so
+
+.DS_Store
+.vscode
+.idea
+*.log
+*.out
+*.test
+bin/
+build
