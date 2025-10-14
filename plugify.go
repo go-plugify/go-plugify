@@ -212,7 +212,7 @@ func (managers PluginManagers) RegisterRoutes(router HttpRouter, routePrefix str
 }
 
 type HttpContext interface {
-	Header(key string) string
+	GetHeader(key string) string
 	Body() io.ReadCloser
 	FormFile(name string) (*multipart.FileHeader, error)
 	Query(key string) string
@@ -222,7 +222,7 @@ type HttpContext interface {
 func getPluginContent(c HttpContext) ([]byte, error) {
 	var fileContent []byte
 
-	ct := c.Header("Content-Type")
+	ct := c.GetHeader("Content-Type")
 	if !strings.Contains(ct, "multipart/form-data") {
 		fileContent, _ = io.ReadAll(c.Body())
 		return fileContent, nil
