@@ -1,7 +1,7 @@
-# go-portal
+# go-plugify
 
-go-portal is a lightweight framework that leverages Golang plugins to enable hot-patching and remote execution of code.
-With go-portal, you can compile only the changed parts of your program locally, upload them, and execute them directly in the remote environment.
+go-plugify is a lightweight framework that leverages Golang plugins to enable hot-patching and remote execution of code.
+With go-plugify, you can compile only the changed parts of your program locally, upload them, and execute them directly in the remote environment.
 
 This approach helps you:
 
@@ -23,7 +23,7 @@ Simple Integration: Drop into existing Go projects with minimal setup.
 
 ## 🚀 Getting Started
 1. Install
-go get github.com/chenhg5/go-portal
+go get github.com/chenhg5/go-plugify
 
 2. Build a Plugin
 package main
@@ -42,9 +42,9 @@ go build -buildmode=plugin -o patch.so patch.go
 
 3. Upload & Execute
 
-Use go-portal to upload the plugin file (patch.so) to the remote server and execute:
+Use go-plugify to upload the plugin file (patch.so) to the remote server and execute:
 
-import "github.com/yourname/go-portal"
+import "github.com/yourname/go-plugify"
 
 func main() {
     client := gportal.NewClient("remote-address")
