@@ -10,8 +10,8 @@ import (
 
 type Util struct{}
 
-// 使用反射和unsafe获取某个对象的属性
-func (u *Util) GetAttr(obj interface{}, attrName string) interface{} {
+// GetAttr used to get the attribute of an object using reflection and unsafe
+func (u *Util) GetAttr(obj any, attrName string) any {
 	v := reflect.ValueOf(obj)
 	if v.Kind() == reflect.Ptr {
 		v = v.Elem()
@@ -32,16 +32,17 @@ func (u *Util) GetAttr(obj interface{}, attrName string) interface{} {
 	return getUnexportedField(field).Interface()
 }
 
-// CallMethod 动态调用对象的方法，支持结构体和指针接收者，支持将 map[string]interface{} 转换为 struct 入参，支持 *struct 入参
-func (u *Util) CallMethod(obj interface{}, methodName string, args ...interface{}) ([]interface{}, error) {
+// CallMethod dynamically calls a method on an object, supporting both struct and pointer receivers,
+// as well as converting map[string]any to struct parameters and supporting *struct parameters.
+func (u *Util) CallMethod(obj any, methodName string, args ...any) ([]any, error) {
 	return CallMethod(obj, methodName, args...)
 }
 
-func (u *Util) ToJSON(v interface{}) string {
+func (u *Util) ToJSON(v any) string {
 	return toJSON(v)
 }
 
-func (u *Util) StructToMap(obj interface{}) (map[string]interface{}, error) {
+func (u *Util) StructToMap(obj any) (map[string]any, error) {
 	if obj == nil {
 		return nil, nil
 	}
@@ -53,7 +54,7 @@ func (u *Util) StructToMap(obj interface{}) (map[string]interface{}, error) {
 		return nil, fmt.Errorf("expected a struct, got %s", v.Kind())
 	}
 
-	result := make(map[string]interface{})
+	result := make(map[string]any)
 	for i := range v.NumField() {
 		field := v.Type().Field(i)
 		value := v.Field(i)
@@ -66,7 +67,7 @@ func (u *Util) StructToMap(obj interface{}) (map[string]interface{}, error) {
 	return result, nil
 }
 
-func (u *Util) StructsToMap(obj interface{}) ([]map[string]interface{}, error) {
+func (u *Util) StructsToMap(obj any) ([]map[string]any, error) {
 	if obj == nil {
 		return nil, nil
 	}
@@ -75,7 +76,7 @@ func (u *Util) StructsToMap(obj interface{}) ([]map[string]interface{}, error) {
 		return nil, fmt.Errorf("expected a slice or array, got %s", v.Kind())
 	}
 
-	result := make([]map[string]interface{}, v.Len())
+	result := make([]map[string]any, v.Len())
 	for i := range v.Len() {
 		item := v.Index(i)
 		if item.Kind() == reflect.Ptr {
@@ -93,23 +94,23 @@ func (u *Util) StructsToMap(obj interface{}) ([]map[string]interface{}, error) {
 	return result, nil
 }
 
-func (u *Util) Unmarshal(data []byte, v interface{}) error {
+func (u *Util) Unmarshal(data []byte, v any) error {
 	if len(data) == 0 {
 		return nil
 	}
 	return json.Unmarshal(data, v)
 }
 
-func (u *Util) Marshal(v interface{}) ([]byte, error) {
+func (u *Util) Marshal(v any) ([]byte, error) {
 	if v == nil {
 		return nil, nil
 	}
 	return json.Marshal(v)
 }
 
-func (u *Util) GetContextValues(ctx context.Context) map[interface{}]interface{} {
+func (u *Util) GetContextValues(ctx context.Context) map[any]any {
 	visited := map[context.Context]bool{}
-	result := make(map[interface{}]interface{})
+	result := make(map[any]any)
 	for ctx != nil {
 		if visited[ctx] {
 			break
@@ -156,7 +157,7 @@ func getUnexportedField(v reflect.Value) reflect.Value {
 }
 
 
-func toJSON(v interface{}) string {
+func toJSON(v any) string {
 	data, err := json.Marshal(v)
 	if err != nil {
 		return ""
@@ -164,8 +165,7 @@ func toJSON(v interface{}) string {
 	return string(data)
 }
 
-// CallMethod 动态调用对象的方法，支持结构体和指针接收者，支持将 map[string]interface{} 转换为 struct 入参，支持 *struct 入参
-func CallMethod(obj interface{}, methodName string, args ...interface{}) ([]interface{}, error) {
+func CallMethod(obj any, methodName string, args ...any) ([]any, error) {
 	if obj == nil {
 		return nil, fmt.Errorf("object is nil")
 	}
@@ -174,7 +174,6 @@ func CallMethod(obj interface{}, methodName string, args ...interface{}) ([]inte
 	v := reflect.ValueOf(obj)
 	method = v.MethodByName(methodName)
 
-	// 如果方法在值上找不到，尝试在指针上找
 	if !method.IsValid() && v.Kind() != reflect.Ptr {
 		vPtr := reflect.New(v.Type())
 		vPtr.Elem().Set(v)
@@ -199,47 +198,39 @@ func CallMethod(obj interface{}, methodName string, args ...interface{}) ([]inte
 
 	out := method.Call(in)
 
-	results := make([]interface{}, len(out))
+	results := make([]any, len(out))
 	for i, val := range out {
 		results[i] = val.Interface()
 	}
 	return results, nil
 }
 
-// convertArgument 处理参数转换
-func convertArgument(arg interface{}, expectedType reflect.Type) (reflect.Value, error) {
+// convertArgument attempts to convert arg to the expectedType.
+// It supports basic type conversion and JSON-based conversion for complex types.
+func convertArgument(arg any, expectedType reflect.Type) (reflect.Value, error) {
 	argValue := reflect.ValueOf(arg)
 
-	// 普通类型转换
 	if argValue.Type().ConvertibleTo(expectedType) {
 		return argValue.Convert(expectedType), nil
 	}
 
-	// 如果入参是复杂类型，比如map或者包含struct的类型，则使用json进行转换
 	notBasicType := argValue.Kind() == reflect.Map ||
 		argValue.Kind() == reflect.Struct ||
 		argValue.Kind() == reflect.Slice ||
 		argValue.Kind() == reflect.Array ||
-		// 结构体指针
 		(argValue.Kind() == reflect.Ptr && argValue.Elem().Kind() == reflect.Struct)
 	if notBasicType {
-		// 如果期望的类型是指针类型，则需要转换为指针
 		if expectedType.Kind() == reflect.Ptr {
-			// 如果是指针类型，先创建一个新的指针
 			newValue := reflect.New(expectedType.Elem())
-			// 将arg转换为expectedType.Elem()类型
 			if err := json.Unmarshal([]byte(toJSON(arg)), newValue.Interface()); err != nil {
 				return reflect.Value{}, fmt.Errorf("cannot convert %T to %s: %v", arg, expectedType, err)
 			}
-			// 返回指针类型的值
 			return newValue, nil
 		}
-		// 如果期望的类型是非指针类型，则直接转换为expectedType
 		newValue := reflect.New(expectedType).Elem()
 		if err := json.Unmarshal([]byte(toJSON(arg)), newValue.Addr().Interface()); err != nil {
 			return reflect.Value{}, fmt.Errorf("cannot convert %T to %s: %v", arg, expectedType, err)
 		}
-		// 返回非指针类型的值
 		return newValue, nil
 	}
 

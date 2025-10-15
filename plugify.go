@@ -16,7 +16,7 @@ type PluginComponents struct {
 	Logger Logger
 	Util   *Util
 
-	Components map[string]Component
+	Components Components
 }
 
 func (p *PluginComponents) GetLogger() any {
@@ -27,15 +27,25 @@ func (p *PluginComponents) GetUtil() any {
 	return p.Util
 }
 
+func (p *PluginComponents) GetComponents() any {
+	return p.Components
+}
+
+type Components map[string]Component
+
+func (c Components) Get(name string) any {
+	return c[name]
+}
+
 type Plugin struct {
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
 	InstallTime time.Time `json:"install_time"`
 	UpgradeTime time.Time `json:"upgrade_time"`
 
-	run     func(any)         `json:"-"`
-	load    func(any)         `json:"-"`
-	methods map[string]func(any) `json:"-"`
+	run     func(any)                `json:"-"`
+	load    func(any)                `json:"-"`
+	methods map[string]func(any) any `json:"-"`
 
 	lock sync.RWMutex `json:"-"`
 }
@@ -51,12 +61,24 @@ func (p *Plugin) Upgrade(inputPlugin PluginInput) {
 	p.methods = inputPlugin.Methods()
 }
 
+func (p *Plugin) CallMethod(name string, args any) any {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+
+	if method, ok := p.methods[name]; ok {
+		return method(args)
+	} else {
+		logger.Warn("[Plugin] No method %s found in plugin %s", name, p.Name)
+	}
+	return nil
+}
+
 type PluginInput interface {
 	GetName() string
 	GetDescription() string
 	Run(any)
 	Load(any)
-	Methods() map[string]func(any)
+	Methods() map[string]func(any) any
 }
 
 func (manager *PluginManager) LoadPlugin(pluginso []byte) (*Plugin, error) {
@@ -179,8 +201,7 @@ type HttpRouter interface {
 	Add(route string, handler func(c HttpContext))
 }
 
-func Init(serviceName string, components ...Component) {
-	var logger Logger
+func Init(serviceName string, components ...Component) PluginManagers {
 	extendCompones := make(map[string]Component)
 	for _, c := range components {
 		extendCompones[c.Name()] = c
@@ -188,7 +209,6 @@ func Init(serviceName string, components ...Component) {
 			logger = c.Service().(Logger)
 		}
 	}
-	globalPluginManager = make(map[string]*PluginManager)
 	if serviceName == "" {
 		serviceName = "default"
 	}
@@ -202,9 +222,10 @@ func Init(serviceName string, components ...Component) {
 		components: &PluginComponents{
 			Logger:     logger,
 			Util:       &Util{},
-			Components: make(map[string]Component),
+			Components: extendCompones,
 		},
 	}
+	return globalPluginManager
 }
 
 func (managers PluginManagers) RegisterRoutes(router HttpRouter, routePrefix string) {
