@@ -143,7 +143,7 @@ For the client, navigate into the project folder and run:
 
 ### Examples
 
-查看：https://github.com/go-plugify/example
+See：https://github.com/go-plugify/example
 
 ## License
 
