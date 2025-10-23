@@ -29,9 +29,9 @@
 
 - [Introduction](#Introduction)
   - [Features](#Features)
-- [QuickStart](#Quick Start)
+- [Quick Start](#quick-start)
   - [Dependencies](#Dependencies)
-  - [GettingStarted](#Quick Start)
+  - [Getting Started](#getting-started)
   - [Examples](#Examples)
 - [License](#License)
 
