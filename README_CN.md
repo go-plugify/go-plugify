@@ -11,13 +11,13 @@
 </h1>
 
 <div align="center">
-  An elegant and easy-to-use Golang plugin framework
+  一个优雅易用的golang插件框架
   <br />
-  <a href="https://github.com/go-plugify/go-plugify/issues/new?assignees=&labels=bug&template=bug_report.md">Report a Bug</a>
+  <a href="https://github.com/go-plugify/go-plugify/issues/new?assignees=&labels=bug&template=bug_report_zh.md">提BUG</a>
   ·
-  <a href="https://github.com/go-plugify/go-plugify/issues/new?assignees=&labels=enhancement&template=proposal.md">Request a Feature</a>
+  <a href="https://github.com/go-plugify/go-plugify/issues/new?assignees=&labels=enhancement&template=proposal_zh.md">提建议</a>
   .
-  <a href="https://github.com/go-plugify/go-plugify/issues/new?assignees=&labels=question&template=question.md">Ask a Question</a>
+  <a href="https://github.com/go-plugify/go-plugify/issues/new?assignees=&labels=question&template=question_zh.md">问问题</a>
 </div>
 
 <br />
@@ -25,65 +25,62 @@
 </div>
 
 <details open="open">
-<summary>Table of contents</summary>
+<summary>目录</summary>
 
-- [Introduction](#Introduction)
-  - [Features](#Features)
-- [Quick Start](#Quick Start)
-  - [Dependencies](#Dependencies)
-  - [Quick Start](#Quick Start)
-  - [Examples](#Examples)
-- [License](#License)
+- [介绍](#介绍)
+  - [特性](#特性)
+- [快速上手](#快速上手)
+  - [依赖](#依赖)
+  - [上手](#上手)
+  - [例子](#例子)
+- [文档](#文档)
+- [证书](#证书)
 
 </details>
 
 ---
 
-## Introduction
+## 介绍
 
-Golang is undoubtedly one of the most successful and widely used programming languages in recent years. Its many advantages make it a popular choice for backend development in both web and mobile applications.
+golang毫无疑问是近年来很成功且广泛应用的语言，他的诸多优点使得其被广泛用于网页以及手机应用的后端程序中。go-plugify是基于golang的插件框架，其本身利用了golang的原生plugin能力。
+使用go-plugify可以帮助您快速实现很多很棒的特性，解决很多开发上的问题，您不需要再为一个小修补而编译部署整个程序。您可以把功能修复验证的时间从小时分钟级缩减为秒级。而这只是其诸多能解决的问题之一。
 
-go-plugify is a plugin framework built on top of Golang, leveraging its native plugin capabilities.
+### 特性
 
-With go-plugify, you can easily implement powerful features and solve many common development problems. For instance, instead of recompiling and redeploying an entire program for a minor patch, you can apply, test, and verify changes within seconds. And that’s just one of the problems it helps you solve.
+- 通过插件热更新：在本地编译小片段代码，并在远程加载，无需重启。
 
-### Features
+- 远程执行：在目标环境中注入并运行上传的方法或函数。
 
-- Hot Update via Plugin: Compile small pieces of code locally and load them remotely without restarting.
+- 更快的调试与修复周期：可在线快速验证修复或新逻辑。
 
-- Remote Execution: Inject and run uploaded methods/functions in the target environment.
+- 简单集成：可轻松接入现有的 Go 项目，几乎无需额外配置。
 
-- Faster Debug & Fix Cycles: Quickly validate bugfixes or new logic online.
+## 快速上手
 
-- Simple Integration: Drop into existing Go projects with minimal setup.
+### 依赖
 
-## Quick Start
+- 服务端程序需要cgo的支持，编译时加上：CGO_ENABLED=true
+- 程序需要在linux或mac上运行
 
-### Dependencies
+### 上手
 
-- The server-side program requires cgo support — compile with: CGO_ENABLED=true
-
-- Must run on Linux or macOS
-
-### Getting Started
-
-#### 1. Install the CLI tool
+#### 1. 安装命令行工具
 
 ```
 go install github.com/go-plugify/plugcli
 ```
 
-#### 2. Create a new plugin scaffold
+#### 2. 新建脚手架
 
 ```
 plugcli create myplugin
 ```
 
-#### 3. Write your plugin
+#### 3. 编写自己的插件
 
-##### 3.1 Client-side Code
+##### 3.1 客户端代码
 
-Open the `plugin.go` file and write your plugin logic:
+打开`plugin.go`文件，编写：
 ```go
 ...
 func (p Plugin) Run(args any) {
@@ -100,13 +97,11 @@ func (p Plugin) Run(args any) {
 	})
 }
 ...
-
 ```
 
-##### 3.2 Server-side Code
+##### 3.2 服务端
 
-The server provides endpoints to receive and load plugin requests.
-You can integrate it with your own web framework, for example:
+服务端是挂载端点，以接收插件的加载运行请求。可以根据自身的web框架来接入，如：
 
 ```go
 ...
@@ -162,23 +157,22 @@ func (c *Caclulator) Div(a, b int) int {
 	}
 	return a / b
 }
-
 ```
 
-#### 4. Run
+#### 4. 运行
 
-When compiling the server, remember to include: `CGO_ENABLED=true`
+服务端编译记得加上：`CGO_ENABLED=true`。
 
-For the client, navigate into the project folder and run:
+客户端运行，可以进入项目文件夹后执行：`make run`，但记得修改 `Makefile` 中的服务端地址。
 
-### Examples
+### 例子
 
 查看：https://github.com/go-plugify/example
 
-## License
+## 证书
 
-This project is licensed under the **MIT license**.
+本项目使用 **MIT license**.
 
-See [LICENSE](LICENSE) for more information.
+了解更多，请访问： [LICENSE](LICENSE)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
