@@ -142,7 +142,7 @@ func setupRouter() *gin.Engine {
 
 查看：https://github.com/go-plugify/example
 
-<img alt="example" src="https://github.com/go-plugify/example/blob/main/example.gif?raw=true" width="351">
+<img alt="example" src="https://github.com/go-plugify/example/blob/main/example.gif?raw=true" width="651">
 
 ## 为什么不用 rpc 或 yaegi
 
