@@ -47,6 +47,8 @@ go-plugify is a plugin framework built on top of Golang, leveraging its native p
 
 With go-plugify, you can easily implement powerful features and solve many common development problems. For instance, instead of recompiling and redeploying an entire program for a minor patch, you can apply, test, and verify changes within seconds. And that’s just one of the problems it helps you solve.
 
+Note that go-plugify is still under iterative development and is not recommended for use in production environments.
+
 ### Features
 
 - Hot Update via Plugin: Compile small pieces of code locally and load them remotely without restarting.
@@ -144,6 +146,20 @@ For the client, navigate into the project folder and run:
 ### Examples
 
 See：https://github.com/go-plugify/example
+
+## Why Not RPC OR yaegi
+
+### Compared to `rpc`
+
+* `rpc` cannot directly access server-side objects, while **go-plugify** can call methods or access properties through `interface` or `unsafe` as long as they are mounted.
+* To achieve similar functionality with `rpc`, the server must implement a lot of mapping code, whereas **go-plugify** requires minimal and much less intrusive logic on the server side.
+* However, there are also drawbacks — plugins cannot be unloaded. Each **go-plugify** execution increases the server’s RSS memory usage, which can only be optimized by restarting the process.
+* Compiling `.so` files and uploading them in **go-plugify** takes some time, so it’s not suitable for real-time services.
+
+### Compared to `yaegi`
+
+* It can directly call server-side objects but requires manual registration. Additionally, there’s no code completion or hinting during development.
+* Method invocation is limited — for example, reflection and similar features are not available — while **go-plugify** supports native Go syntax with autocompletion, hints, and reflection.
 
 ## License
 
