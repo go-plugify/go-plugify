@@ -147,6 +147,8 @@ For the client, navigate into the project folder and run:
 
 See：https://github.com/go-plugify/example
 
+<img alt="example" src="https://github.com/go-plugify/example/blob/main/example.gif?raw=true" width="351">
+
 ## Why Not RPC OR yaegi
 
 ### Compared to `rpc`
