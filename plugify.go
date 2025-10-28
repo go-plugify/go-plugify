@@ -230,6 +230,7 @@ func Init(serviceName string, components ...Component) PluginManagers {
 
 func (managers PluginManagers) RegisterRoutes(router HttpRouter, routePrefix string) {
 	router.Add(routePrefix+"/plugin/init", managers.LoadPluginFromHTTP)
+	router.Add(routePrefix+"/plugin/list", managers.List)
 }
 
 type HttpContext interface {
@@ -288,8 +289,18 @@ func (managers PluginManagers) LoadPluginFromHTTP(c HttpContext) {
 	plugin.RunHTTP(c)
 }
 
+func (managers PluginManagers) List(c HttpContext) {
+	serviceName := c.Query("service")
+	if serviceName == "" {
+		serviceName = "default"
+	}
+
+	plugins := globalPluginManager[serviceName].List()
+	c.JSON(200, plugins)
+}
+
 func ErrorRet(c HttpContext, err error) {
-	c.JSON(500, map[string]interface{}{
+	c.JSON(500, map[string]any{
 		"error": err.Error(),
 	})
 }
