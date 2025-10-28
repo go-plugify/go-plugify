@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 	"unsafe"
 )
 
@@ -40,6 +41,10 @@ func (u *Util) CallMethod(obj any, methodName string, args ...any) ([]any, error
 
 func (u *Util) ToJSON(v any) string {
 	return toJSON(v)
+}
+
+func (u *Util) ConvertTo(src, dist any) error {
+	return ConvertTo(src, dist)
 }
 
 func (u *Util) StructToMap(obj any) (map[string]any, error) {
@@ -156,7 +161,6 @@ func getUnexportedField(v reflect.Value) reflect.Value {
 	return reflect.NewAt(v.Type(), unsafe.Pointer(v.UnsafeAddr())).Elem()
 }
 
-
 func toJSON(v any) string {
 	data, err := json.Marshal(v)
 	if err != nil {
@@ -205,34 +209,205 @@ func CallMethod(obj any, methodName string, args ...any) ([]any, error) {
 	return results, nil
 }
 
+func ConvertTo(src, dist any) error {
+	srcValue := reflect.ValueOf(src)
+	distValue := reflect.ValueOf(dist)
+
+	if distValue.Kind() != reflect.Ptr || distValue.IsNil() {
+		return fmt.Errorf("dist must be a non-nil pointer")
+	}
+
+	return copyValue(srcValue, distValue.Elem())
+}
+
 // convertArgument attempts to convert arg to the expectedType.
 // It supports basic type conversion and JSON-based conversion for complex types.
 func convertArgument(arg any, expectedType reflect.Type) (reflect.Value, error) {
 	argValue := reflect.ValueOf(arg)
 
-	if argValue.Type().ConvertibleTo(expectedType) {
+	// directly convertible
+	if argValue.IsValid() && argValue.Type().ConvertibleTo(expectedType) {
 		return argValue.Convert(expectedType), nil
 	}
 
-	notBasicType := argValue.Kind() == reflect.Map ||
+	notBasicType := argValue.IsValid() && (argValue.Kind() == reflect.Map ||
 		argValue.Kind() == reflect.Struct ||
 		argValue.Kind() == reflect.Slice ||
 		argValue.Kind() == reflect.Array ||
-		(argValue.Kind() == reflect.Ptr && argValue.Elem().Kind() == reflect.Struct)
+		(argValue.Kind() == reflect.Ptr && argValue.Elem().Kind() == reflect.Struct))
 	if notBasicType {
 		if expectedType.Kind() == reflect.Ptr {
 			newValue := reflect.New(expectedType.Elem())
-			if err := json.Unmarshal([]byte(toJSON(arg)), newValue.Interface()); err != nil {
+			if err := copyValue(argValue, newValue.Elem()); err != nil {
 				return reflect.Value{}, fmt.Errorf("cannot convert %T to %s: %v", arg, expectedType, err)
 			}
 			return newValue, nil
 		}
+
 		newValue := reflect.New(expectedType).Elem()
-		if err := json.Unmarshal([]byte(toJSON(arg)), newValue.Addr().Interface()); err != nil {
+		if err := copyValue(argValue, newValue); err != nil {
 			return reflect.Value{}, fmt.Errorf("cannot convert %T to %s: %v", arg, expectedType, err)
 		}
 		return newValue, nil
 	}
 
 	return reflect.Value{}, fmt.Errorf("cannot convert %T to %s", arg, expectedType)
+}
+
+func copyValue(src reflect.Value, dst reflect.Value) error {
+	if !src.IsValid() {
+		return nil
+	}
+
+	if src.Kind() == reflect.Ptr {
+		if src.IsNil() {
+			return nil
+		}
+		src = src.Elem()
+	}
+
+	if dst.Kind() == reflect.Ptr {
+		if dst.IsNil() {
+			dst.Set(reflect.New(dst.Type().Elem()))
+		}
+		dst = dst.Elem()
+	}
+
+	// 1) struct -> struct
+	if src.Kind() == reflect.Struct && dst.Kind() == reflect.Struct {
+		for i := range dst.NumField() {
+			dstField := dst.Field(i)
+			dstTypeField := dst.Type().Field(i)
+			srcField := src.FieldByName(dstTypeField.Name)
+			if !srcField.IsValid() {
+				continue
+			}
+
+			if dstField.CanSet() {
+				if err := copyValue(srcField, dstField); err != nil {
+					return err
+				}
+			} else {
+				copyUnexportedField(srcField, dstField)
+			}
+		}
+		return nil
+	}
+
+	// 2) map -> struct(ignore case)
+	if src.Kind() == reflect.Map && dst.Kind() == reflect.Struct {
+		keyLowerToVal := make(map[string]reflect.Value)
+		for _, key := range src.MapKeys() {
+			if key.Kind() == reflect.String {
+				keyLowerToVal[strings.ToLower(key.String())] = src.MapIndex(key)
+			}
+		}
+		for i := range dst.NumField() {
+			dstField := dst.Field(i)
+			dstTypeField := dst.Type().Field(i)
+			srcVal, ok := keyLowerToVal[strings.ToLower(dstTypeField.Name)]
+			if !ok || !srcVal.IsValid() {
+				continue
+			}
+			if dstField.CanSet() {
+				if err := copyValue(srcVal, dstField); err != nil {
+					return err
+				}
+			} else {
+				copyUnexportedField(srcVal, dstField)
+			}
+		}
+		return nil
+	}
+
+	// 3) slice/array -> slice/array
+	if (src.Kind() == reflect.Slice || src.Kind() == reflect.Array) &&
+		(dst.Kind() == reflect.Slice || dst.Kind() == reflect.Array) {
+
+		elemDstType := dst.Type().Elem()
+
+		newSlice := reflect.MakeSlice(reflect.SliceOf(elemDstType), 0, src.Len())
+
+		for i := range src.Len() {
+			srcElem := src.Index(i)
+
+			var newElem reflect.Value
+			if elemDstType.Kind() == reflect.Ptr {
+				newElemPtr := reflect.New(elemDstType.Elem())
+				if err := copyValue(srcElem, newElemPtr.Elem()); err != nil {
+					return err
+				}
+				newElem = newElemPtr
+			} else {
+				newElemVal := reflect.New(elemDstType).Elem()
+				if err := copyValue(srcElem, newElemVal); err != nil {
+					return err
+				}
+				newElem = newElemVal
+			}
+
+			newSlice = reflect.Append(newSlice, newElem)
+		}
+
+		if dst.Kind() == reflect.Slice {
+			dst.Set(newSlice)
+			return nil
+		}
+
+		for i := 0; i < newSlice.Len() && i < dst.Len(); i++ {
+			dst.Index(i).Set(newSlice.Index(i))
+		}
+		return nil
+	}
+
+	// 4) simple type conversion
+	if src.Type().ConvertibleTo(dst.Type()) {
+		dst.Set(src.Convert(dst.Type()))
+		return nil
+	}
+
+	// 5) JSON marshal/unmarshal
+	b, _ := json.Marshal(src.Interface())
+	return json.Unmarshal(b, dst.Addr().Interface())
+}
+
+// unsafe copyUnexportedField copies unexported fields from src to dst using unsafe.
+func copyUnexportedField(src, dst reflect.Value) {
+	if src.Kind() == reflect.Ptr {
+		src = src.Elem()
+	}
+	if dst.Kind() == reflect.Ptr {
+		dst = dst.Elem()
+	}
+
+	if src.Kind() != reflect.Struct || dst.Kind() != reflect.Struct {
+		return
+	}
+
+	srcType := src.Type()
+	for i := range srcType.NumField() {
+		field := srcType.Field(i)
+		if field.PkgPath == "" {
+			continue
+		}
+
+		srcField := src.Field(i)
+		dstField := dst.FieldByIndex(field.Index)
+
+		if !srcField.IsValid() || !dstField.IsValid() {
+			continue
+		}
+		if dstField.CanSet() {
+			dstField.Set(srcField)
+			continue
+		}
+
+		unsafeSetField(dstField, srcField)
+	}
+}
+
+func unsafeSetField(dst, src reflect.Value) {
+	dstPtr := unsafe.Pointer(dst.UnsafeAddr())
+	srcPtr := unsafe.Pointer(src.UnsafeAddr())
+	reflect.NewAt(dst.Type(), dstPtr).Elem().Set(reflect.NewAt(src.Type(), srcPtr).Elem())
 }
