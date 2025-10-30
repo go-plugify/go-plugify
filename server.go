@@ -8,10 +8,10 @@ import (
 )
 
 type HTTPServer struct {
-	pluginManagers map[string]Manager
+	pluginManagers PluginManagers
 }
 
-func InitHTTPServer(pluginManagers map[string]Manager) *HTTPServer {
+func InitHTTPServer(pluginManagers PluginManagers) *HTTPServer {
 	return &HTTPServer{
 		pluginManagers: pluginManagers,
 	}
