@@ -51,11 +51,11 @@ func (l *NativePluginHTTPLoader) Load(meta *Meta, src any) (IPlugin, error) {
 		return nil, err
 	}
 
-	p, err := plugin.Open(tmpfile.Name())
+	openPlugin, err := plugin.Open(tmpfile.Name())
 	if err != nil {
 		return nil, err
 	}
-	sym, err := p.Lookup("ExportPlugin")
+	sym, err := openPlugin.Lookup("ExportPlugin")
 	if err != nil {
 		return nil, err
 	}
@@ -66,6 +66,7 @@ func (l *NativePluginHTTPLoader) Load(meta *Meta, src any) (IPlugin, error) {
 		run:         exports.Run,
 		load:        exports.Load,
 		methods:     exports.Methods(),
+		destroy:     exports.Destroy,
 		InstallTime: time.Now(),
 	}
 
@@ -169,6 +170,12 @@ func (p *YaegiPlugin) OnInit(plugDepencies *PluginComponents) error {
 		return err
 	}
 	p.methods = methodsFn.Interface().(map[string]func(any) any)
+
+	destroyFn, err := i.Eval("Destroy")
+	if err != nil {
+		return err
+	}
+	p.destroy = destroyFn.Interface().(func(any) error)
 
 	return nil
 }
