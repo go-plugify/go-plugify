@@ -28,6 +28,7 @@ func InitPluginManagers(serviceName string, components ...Component) PluginManag
 			Util:       new(Util),
 			Components: extendCompones,
 		},
+		loaders: make(map[string]Loader),
 	}
 	managers[serviceName].AddLoader(new(NativePluginHTTPLoader))
 	managers[serviceName].AddLoader(new(YaegiHTTPLoader))
@@ -49,7 +50,7 @@ type Manager interface {
 type PluginManager struct {
 	plugins    *Plugins
 	components *PluginComponents
-	loads      map[string]Loader
+	loaders    map[string]Loader
 
 	serviceName string
 }
@@ -59,7 +60,7 @@ func (manager *PluginManager) Components() *PluginComponents {
 }
 
 func (manager *PluginManager) AddLoader(loader Loader) {
-	manager.loads[loader.Name()] = loader
+	manager.loaders[loader.Name()] = loader
 }
 
 func (manager *PluginManager) AddPlugin(plugin IPlugin) {
@@ -85,7 +86,7 @@ func (manager *PluginManager) LoadPlugin(meta *Meta, src any) (IPlugin, error) {
 		return nil, ErrInvalidLoaderSource
 	}
 
-	loader, ok := manager.loads[meta.Loader]
+	loader, ok := manager.loaders[meta.Loader]
 	if !ok {
 		return nil, fmt.Errorf("loader %s not found", meta.Loader)
 	}
