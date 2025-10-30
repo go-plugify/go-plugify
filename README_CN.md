@@ -144,20 +144,6 @@ func setupRouter() *gin.Engine {
 
 <img alt="example" src="https://github.com/go-plugify/example/blob/main/example.gif?raw=true" width="651">
 
-## 为什么不用 rpc 或 yaegi
-
-### 比较于 `rpc`
-
-- rpc 没法直接获取server端对象，**go-plugify** 只要挂载了，可以通过	`interface` 或 `unsafe` 方式调用方法或属性
-- rpc 要实现类似效果，需要server端做很多映射代码，**go-plugify** 则不需要server有额外过多和复杂的侵入逻辑
-- 但也有缺点，就是plugin没法卸载，**go-plugify** 每次执行会导致server端进程rss内存增加，只能通过重启优化
-- **go-plugify** 编译.so以及上传稍微比较费时，不能用于实时服务
-
-### 比较于 `yaegi`
-
-- 可以直接调用server端对象，但需要手动注册，但是写代码的时候是没有补全和提示的
-- 调用方法有限制，比如反射等是用不了的，而 **go-plugify** 支持原生go语法，有补全和提示，也能使用反射
-
 ## 证书
 
 本项目使用 **MIT license**.
