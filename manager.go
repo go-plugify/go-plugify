@@ -2,7 +2,6 @@ package goplugify
 
 import (
 	"fmt"
-	"time"
 )
 
 func InitPluginManagers(serviceName string, components ...Component) PluginManagers {
@@ -99,8 +98,8 @@ func (manager *PluginManager) LoadPlugin(meta *Meta, src any) (IPlugin, error) {
 	loadPlug.OnInit(manager.components)
 	existPlug, ok := manager.plugins.Get(meta.ID)
 	if ok {
-		loadPlug.SetInstallTime(existPlug.GetInstallTime())
-		loadPlug.SetUpgradeTime(time.Now())
+		existPlug.Upgrade(loadPlug)
+		return existPlug, nil
 	}
 	manager.plugins.Add(loadPlug)
 

@@ -9,14 +9,15 @@ type IPlugin interface {
 	OnInit(*PluginComponents) error
 	OnRun(any) (any, error)
 	OnDestroy(any) error
-
 	Meta() *Meta
-	SetMeta(meta *Meta)
+	Upgrade(IPlugin)
+}
 
-	GetInstallTime() time.Time
-	GetUpgradeTime() time.Time
-	SetInstallTime(time.Time)
-	SetUpgradeTime(time.Time)
+type PluginFunc interface {
+	Run(any) (any, error)
+	Load(any) error
+	Methods() map[string]func(any) any
+	Destroy(any) error
 }
 
 type Meta struct {
@@ -37,50 +38,57 @@ type Plugin struct {
 	run     func(any) (any, error)   `json:"-"`
 	load    func(any) error          `json:"-"`
 	methods map[string]func(any) any `json:"-"`
+	destroy func(any) error          `json:"-"`
 
 	lock sync.RWMutex `json:"-"`
-}
-
-func (p *Plugin) SetMeta(meta *Meta) {
-	p.meta = meta
-}
-
-func (p *Plugin) GetInstallTime() time.Time {
-	return p.InstallTime
-}
-
-func (p *Plugin) GetUpgradeTime() time.Time {
-	return p.UpgradeTime
-}
-
-func (p *Plugin) SetInstallTime(t time.Time) {
-	p.InstallTime = t
-}
-
-func (p *Plugin) SetUpgradeTime(t time.Time) {
-	p.UpgradeTime = t
 }
 
 func (p *Plugin) Meta() *Meta {
 	return p.meta
 }
 
-func (p *Plugin) OnInit(plugDepencies *PluginComponents) error {
+func (p *Plugin) Upgrade(newPlug IPlugin) {
+
+	newPlugin, ok := newPlug.(*Plugin)
+	if !ok {
+		return
+	}
+
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
+	p.run = newPlugin.run
+	p.load = newPlugin.load
+	p.methods = newPlugin.methods
+	p.destroy = newPlugin.destroy
+
+	p.UpgradeTime = time.Now()
+}
+
+func (p *Plugin) OnInit(plugDepencies *PluginComponents) error {
 	if p.load == nil {
 		return ErrPluginNoLoadMethod
 	}
-
+	p.lock.Lock()
+	defer p.lock.Unlock()
 	return p.load(plugDepencies)
 }
 
-func (p *Plugin) OnDestroy(any) error {
-	return nil
+func (p *Plugin) OnDestroy(req any) error {
+	if p.destroy == nil {
+		return nil
+	}
+	p.lock.Lock()
+	defer p.lock.Unlock()
+	return p.destroy(req)
 }
 
 func (p *Plugin) OnRun(req any) (any, error) {
+	if p.run == nil {
+		return nil, ErrPluginNoRunMethod
+	}
+	p.lock.Lock()
+	defer p.lock.Unlock()
 	return p.run(req)
 }
 

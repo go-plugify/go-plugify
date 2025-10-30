@@ -59,7 +59,7 @@ func (l *NativePluginHTTPLoader) Load(meta *Meta, src any) (IPlugin, error) {
 	if err != nil {
 		return nil, err
 	}
-	exports := sym.(PluginInput)
+	exports := sym.(PluginFunc)
 
 	plugin := &Plugin{
 		meta:        meta,
@@ -70,12 +70,6 @@ func (l *NativePluginHTTPLoader) Load(meta *Meta, src any) (IPlugin, error) {
 	}
 
 	return plugin, nil
-}
-
-type PluginInput interface {
-	Run(any) (any, error)
-	Load(any) error
-	Methods() map[string]func(any) any
 }
 
 func getPluginContent(c HttpContext) ([]byte, error) {

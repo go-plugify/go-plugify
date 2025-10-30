@@ -2,7 +2,8 @@ package goplugify
 
 var (
 	ErrInvalidLoaderSource = NewError("invalid loader source")
-	ErrPluginNoLoadMethod = NewError("plugin has no load method")
+	ErrPluginNoLoadMethod  = NewError("plugin has no load method")
+	ErrPluginNoRunMethod   = NewError("plugin has no run method")
 )
 
 func NewError(message string) error {
