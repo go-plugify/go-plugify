@@ -6,10 +6,17 @@ import (
 )
 
 type IPlugin interface {
-	Meta() Meta
 	OnInit(*PluginComponents) error
 	OnRun(any) (any, error)
 	OnDestroy(any) error
+
+	Meta() *Meta
+	SetMeta(meta *Meta)
+
+	GetInstallTime() time.Time
+	GetUpgradeTime() time.Time
+	SetInstallTime(time.Time)
+	SetUpgradeTime(time.Time)
 }
 
 type Meta struct {
@@ -26,7 +33,7 @@ type Meta struct {
 }
 
 type Plugin struct {
-	meta Meta
+	meta *Meta
 
 	InstallTime time.Time `json:"install_time"`
 	UpgradeTime time.Time `json:"upgrade_time"`
@@ -38,15 +45,27 @@ type Plugin struct {
 	lock sync.RWMutex `json:"-"`
 }
 
-type PluginInput interface {
-	GetName() string
-	GetDescription() string
-	Run(any) (any, error)
-	Load(any) error
-	Methods() map[string]func(any) any
+func (p *Plugin) SetMeta(meta *Meta) {
+	p.meta = meta
 }
 
-func (p *Plugin) Meta() Meta {
+func (p *Plugin) GetInstallTime() time.Time {
+	return p.InstallTime
+}
+
+func (p *Plugin) GetUpgradeTime() time.Time {
+	return p.UpgradeTime
+}
+
+func (p *Plugin) SetInstallTime(t time.Time) {
+	p.InstallTime = t
+}
+
+func (p *Plugin) SetUpgradeTime(t time.Time) {
+	p.UpgradeTime = t
+}
+
+func (p *Plugin) Meta() *Meta {
 	return p.meta
 }
 
@@ -61,29 +80,8 @@ func (p *Plugin) OnInit(plugDepencies *PluginComponents) error {
 	return p.load(plugDepencies)
 }
 
-var ErrPluginNoLoadMethod = &PluginError{Message: "plugin has no load method"}
-
-type PluginError struct {
-	Message string
-}
-
-func (e *PluginError) Error() string {
-	return e.Message
-}
-
 func (p *Plugin) OnDestroy(any) error {
 	return nil
-}
-
-func (p *Plugin) Upgrade(inputPlugin PluginInput) {
-	p.lock.Lock()
-	defer p.lock.Unlock()
-
-	p.meta.Description = inputPlugin.GetDescription()
-	p.run = inputPlugin.Run
-	p.load = inputPlugin.Load
-	p.UpgradeTime = time.Now()
-	p.methods = inputPlugin.Methods()
 }
 
 func (p *Plugin) OnRun(req any) (any, error) {

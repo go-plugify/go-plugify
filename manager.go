@@ -1,6 +1,9 @@
 package goplugify
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 func InitPluginManagers(serviceName string, components ...Component) PluginManagers {
 	extendCompones := make(map[string]Component)
@@ -34,8 +37,13 @@ func InitPluginManagers(serviceName string, components ...Component) PluginManag
 
 type Manager interface {
 	AddLoader(loader Loader)
-	Load(meta Meta, src any) (IPlugin, error)
-	List() []IPlugin
+
+	LoadPlugin(meta *Meta, src any) (IPlugin, error)
+	AddPlugin(plugin IPlugin)
+	ListPlugins() []IPlugin
+	GetPlugin(pluginID string) (IPlugin, error)
+	UnloadPlugin(pluginID string) error
+
 	Components() *PluginComponents
 }
 
@@ -55,32 +63,56 @@ func (manager *PluginManager) AddLoader(loader Loader) {
 	manager.loads[loader.Name()] = loader
 }
 
-func (manager *PluginManager) Load(meta Meta, src any) (IPlugin, error) {
+func (manager *PluginManager) AddPlugin(plugin IPlugin) {
+	manager.plugins.Add(plugin)
+}
+
+func (manager *PluginManager) UnloadPlugin(pluginID string) error {
+	plugin, ok := manager.plugins.Get(pluginID)
+	if !ok {
+		return fmt.Errorf("plugin %s not found", pluginID)
+	}
+	err := plugin.OnDestroy(nil)
+	if err != nil {
+		return err
+	}
+	manager.plugins.Remove(pluginID)
+	return nil
+}
+
+func (manager *PluginManager) LoadPlugin(meta *Meta, src any) (IPlugin, error) {
 
 	loader, ok := manager.loads[meta.Loader]
 	if !ok {
 		return nil, fmt.Errorf("loader %s not found", meta.Loader)
 	}
 
-	exports, err := loader.Load(meta, src)
+	loadPlug, err := loader.Load(meta, src)
 	if err != nil {
 		return nil, err
 	}
 
-	existPlugin, ok := manager.plugins.Get(exports.Meta().ID)
+	loadPlug.OnInit(manager.components)
+	existPlug, ok := manager.plugins.Get(meta.ID)
 	if ok {
-		logger.Warn("[Plugin] Plugin %s already exists, upgrading...", exports.Meta().ID)
-		existPlugin.OnInit(manager.components)
-		return existPlugin, nil
+		loadPlug.SetInstallTime(existPlug.GetInstallTime())
+		loadPlug.SetUpgradeTime(time.Now())
 	}
-	exports.OnInit(manager.components)
-	manager.plugins.Add(exports)
+	manager.plugins.Add(loadPlug)
 
-	return exports, nil
+	return loadPlug, nil
 }
 
-func (manager *PluginManager) List() []IPlugin {
+func (manager *PluginManager) ListPlugins() []IPlugin {
 	return manager.plugins.List()
+}
+
+func (manager *PluginManager) GetPlugin(pluginID string) (IPlugin, error) {
+	plugin, ok := manager.plugins.Get(pluginID)
+	if !ok {
+		return nil, fmt.Errorf("plugin %s not found", pluginID)
+	}
+	return plugin, nil
 }
 
 type PluginManagers map[string]Manager

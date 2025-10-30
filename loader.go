@@ -15,7 +15,7 @@ import (
 )
 
 type Loader interface {
-	Load(meta Meta, src any) (IPlugin, error)
+	Load(meta *Meta, src any) (IPlugin, error)
 	Name() string
 }
 
@@ -25,7 +25,7 @@ func (l *NativePluginHTTPLoader) Name() string {
 	return "native_plugin_http"
 }
 
-func (l *NativePluginHTTPLoader) Load(meta Meta, src any) (IPlugin, error) {
+func (l *NativePluginHTTPLoader) Load(meta *Meta, src any) (IPlugin, error) {
 	httpContext, ok := src.(HttpContext)
 	if !ok {
 		return nil, ErrInvalidLoaderSource
@@ -63,29 +63,19 @@ func (l *NativePluginHTTPLoader) Load(meta Meta, src any) (IPlugin, error) {
 
 	plugin := &Plugin{
 		meta:        meta,
-		InstallTime: time.Now(),
 		run:         exports.Run,
 		load:        exports.Load,
 		methods:     exports.Methods(),
+		InstallTime: time.Now(),
 	}
 
 	return plugin, nil
 }
 
-var (
-	ErrInvalidLoaderSource = NewError("invalid loader source")
-)
-
-func NewError(message string) error {
-	return &LoadError{message: message}
-}
-
-type LoadError struct {
-	message string
-}
-
-func (e *LoadError) Error() string {
-	return e.message
+type PluginInput interface {
+	Run(any) (any, error)
+	Load(any) error
+	Methods() map[string]func(any) any
 }
 
 func getPluginContent(c HttpContext) ([]byte, error) {
@@ -122,7 +112,7 @@ func (l *YaegiHTTPLoader) Name() string {
 	return "yaegi_http"
 }
 
-func (l *YaegiHTTPLoader) Load(meta Meta, src any) (IPlugin, error) {
+func (l *YaegiHTTPLoader) Load(meta *Meta, src any) (IPlugin, error) {
 	httpContext, ok := src.(HttpContext)
 	if !ok {
 		return nil, ErrInvalidLoaderSource
@@ -136,8 +126,8 @@ func (l *YaegiHTTPLoader) Load(meta Meta, src any) (IPlugin, error) {
 	plugin := &YaegiPlugin{
 		Plugin: &Plugin{
 			meta:        meta,
-			InstallTime: time.Now(),
 			methods:     map[string]func(any) any{},
+			InstallTime: time.Now(),
 		},
 		scriptContent: scriptContent,
 		symbols:       make(map[string]map[string]reflect.Value),
@@ -153,25 +143,6 @@ type YaegiPlugin struct {
 	scriptContent []byte
 }
 
-func (p *YaegiPlugin) OnRun(req any) (any, error) {
-	i := interp.New(interp.Options{})
-	i.Use(stdlib.Symbols)
-	i.Use(p.symbols)
-
-	_, err := i.Eval(string(p.scriptContent))
-	if err != nil {
-		return nil, err
-	}
-
-	val, err := i.Eval("Run")
-	if err != nil {
-		return nil, err
-	}
-
-	fn := val.Interface().(func() map[string]any)
-	return fn(), nil
-}
-
 func (p *YaegiPlugin) OnInit(plugDepencies *PluginComponents) error {
 
 	defPkgPath := "plugify/plugify"
@@ -183,6 +154,27 @@ func (p *YaegiPlugin) OnInit(plugDepencies *PluginComponents) error {
 	for _, comp := range plugDepencies.Components {
 		p.symbols[defPkgPath][strings.ToTitle(comp.Name())] = reflect.ValueOf(comp.Service())
 	}
+
+	i := interp.New(interp.Options{})
+	i.Use(stdlib.Symbols)
+	i.Use(p.symbols)
+
+	_, err := i.Eval(string(p.scriptContent))
+	if err != nil {
+		return err
+	}
+
+	runFn, err := i.Eval("Run")
+	if err != nil {
+		return err
+	}
+	p.run = runFn.Interface().(func(any) (any, error))
+
+	methodsFn, err := i.Eval("Methods")
+	if err != nil {
+		return err
+	}
+	p.methods = methodsFn.Interface().(map[string]func(any) any)
 
 	return nil
 }

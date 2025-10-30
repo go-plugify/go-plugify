@@ -17,8 +17,8 @@ type AuthHttpRouter struct {
 	auth   Authenticator
 }
 
-func (a *AuthHttpRouter) Add(path string, handler func(c HttpContext)) {
-	a.router.Add(path, WithAuthMiddleware(handler, a.auth))
+func (a *AuthHttpRouter) Add(method, path string, handler func(c HttpContext)) {
+	a.router.Add(method, path, WithAuthMiddleware(handler, a.auth))
 }
 
 func WithAuthHttpRouter(router HttpRouter, auth Authenticator) HttpRouter {
