@@ -20,16 +20,12 @@ type IPlugin interface {
 }
 
 type Meta struct {
-	ID          string
-	Name        string
-	Description string
-	Author      string
-	Version     string
-	Type        string
-	Entry       string
-	Permissions []string
-	HasUI       bool
-	Loader      string
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Author      string `json:"author"`
+	Version     string `json:"version"`
+	Loader      string `json:"loader"`
 }
 
 type Plugin struct {

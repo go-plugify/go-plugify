@@ -82,6 +82,10 @@ func (manager *PluginManager) UnloadPlugin(pluginID string) error {
 
 func (manager *PluginManager) LoadPlugin(meta *Meta, src any) (IPlugin, error) {
 
+	if meta == nil || meta.ID == "" || meta.Loader == "" {
+		return nil, ErrInvalidLoaderSource
+	}
+
 	loader, ok := manager.loads[meta.Loader]
 	if !ok {
 		return nil, fmt.Errorf("loader %s not found", meta.Loader)
