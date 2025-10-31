@@ -22,12 +22,29 @@ type PluginFunc interface {
 }
 
 type Meta struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Author      string `json:"author"`
-	Version     string `json:"version"`
-	Loader      string `json:"loader"`
+	ID          string               `json:"id"`
+	Name        string               `json:"name"`
+	Description string               `json:"description"`
+	Author      string               `json:"author"`
+	Version     string               `json:"version"`
+	Loader      string               `json:"loader"`
+	Components  PluginComponentItems `json:"components"`
+}
+
+type PluginComponentItems []*PluginComponentItem
+
+func (p PluginComponentItems) Has(pkgPath, name string) bool {
+	for _, item := range p {
+		if item.PkgPath == pkgPath && item.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+type PluginComponentItem struct {
+	PkgPath string `json:"pkg_path"`
+	Name    string `json:"name"`
 }
 
 type Plugin struct {

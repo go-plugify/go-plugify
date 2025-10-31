@@ -158,10 +158,12 @@ func (p *YaegiPlugin) OnInit(plugDepencies *PluginComponents) error {
 	for _, comp := range plugDepencies.Components {
 		plugDepencies.Logger.Info("Injecting component into plugin %s, component %s", p.Meta().ID, toTitle(comp.Name()))
 		p.symbols[defPkgPath][toTitle(comp.Name())] = reflect.ValueOf(comp.Service())
-		fields := MakeStructTypeMap(comp.Service())
-		for k, v := range fields {
-			plugDepencies.Logger.Info("Injecting component into plugin %s, component %s", p.Meta().ID, toTitle(k))
-			p.symbols[defPkgPath][toTitle(k)] = v
+		if len(p.Meta().Components) > 0 {
+			fields := MakeStructTypeMap(comp.Service(), p.Meta().Components)
+			for k, v := range fields {
+				plugDepencies.Logger.Info("Injecting component into plugin %s, component %s", p.Meta().ID, toTitle(k))
+				p.symbols[defPkgPath][toTitle(k)] = v
+			}
 		}
 	}
 
@@ -201,7 +203,7 @@ func (p *YaegiPlugin) OnInit(plugDepencies *PluginComponents) error {
 
 // MakeStructTypeMap Scans the struct and its method parameters, collecting only custom struct types (non-primitive types, non-standard library).
 // Key format: <PkgNameCapitalized><TypeName>[#hash], with hash added only when the package paths differ but the keys are the same.
-func MakeStructTypeMap(sample any) map[string]reflect.Value {
+func MakeStructTypeMap(sample any, needComps PluginComponentItems) map[string]reflect.Value {
 	result := make(map[string]reflect.Value)
 	keyPkgMap := make(map[string][]string)
 
@@ -211,42 +213,42 @@ func MakeStructTypeMap(sample any) map[string]reflect.Value {
 	}
 
 	// Scan fields recursively
-	buildFieldTypeMap(t, result, keyPkgMap)
+	buildFieldTypeMap(t, result, keyPkgMap, needComps)
 
 	// Scan method parameters
-	buildMethodTypeMap(reflect.TypeOf(sample), result, keyPkgMap)
+	buildMethodTypeMap(reflect.TypeOf(sample), result, keyPkgMap, needComps)
 
 	return result
 }
 
-func buildFieldTypeMap(t reflect.Type, result map[string]reflect.Value, keyPkgMap map[string][]string) {
+func buildFieldTypeMap(t reflect.Type, result map[string]reflect.Value, keyPkgMap map[string][]string, needComps PluginComponentItems) {
 	if t.Kind() != reflect.Struct {
 		return
 	}
 	for i := range t.NumField() {
 		f := t.Field(i)
 		ft := f.Type
-		addTypeToMap(ft, result, keyPkgMap)
+		addTypeToMap(ft, result, keyPkgMap, needComps)
 
 		if ft.Kind() == reflect.Struct {
-			buildFieldTypeMap(ft, result, keyPkgMap)
+			buildFieldTypeMap(ft, result, keyPkgMap, needComps)
 		}
 	}
 }
 
-func buildMethodTypeMap(t reflect.Type, result map[string]reflect.Value, keyPkgMap map[string][]string) {
-	for i := 0; i < t.NumMethod(); i++ {
+func buildMethodTypeMap(t reflect.Type, result map[string]reflect.Value, keyPkgMap map[string][]string, needComps PluginComponentItems) {
+	for i := range t.NumMethod() {
 		m := t.Method(i)
 		mt := m.Type
 		for j := 1; j < mt.NumIn(); j++ {
 			argType := mt.In(j)
-			addTypeToMap(argType, result, keyPkgMap)
+			addTypeToMap(argType, result, keyPkgMap, needComps)
 		}
 	}
 }
 
 // addTypeToMap adds the type to the result map if it's a custom struct type.
-func addTypeToMap(t reflect.Type, result map[string]reflect.Value, keyPkgMap map[string][]string) {
+func addTypeToMap(t reflect.Type, result map[string]reflect.Value, keyPkgMap map[string][]string, needComps PluginComponentItems) {
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
@@ -261,6 +263,10 @@ func addTypeToMap(t reflect.Type, result map[string]reflect.Value, keyPkgMap map
 
 	typeName := t.Name()
 	if typeName == "" {
+		return
+	}
+
+	if !needComps.Has(pkg, typeName) {
 		return
 	}
 
