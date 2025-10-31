@@ -5,7 +5,6 @@ import (
 	"log"
 )
 
-
 var logger Logger
 
 type Logger interface {
@@ -41,4 +40,12 @@ func (l *DefaultLogger) Error(format string, args ...any) {
 
 func (l *DefaultLogger) Info(format string, args ...any) {
 	log.Printf("[INFO] "+format+"\n", args...)
+}
+
+type LoggerWrapper struct {
+	Logger
+}
+
+func NewLoggerWrapper(logger Logger) *LoggerWrapper {
+	return &LoggerWrapper{logger}
 }

@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"plugin"
 	"reflect"
+	"slices"
 	"strings"
 	"time"
 
@@ -138,16 +140,29 @@ type YaegiPlugin struct {
 	scriptContent []byte
 }
 
+func toTitle(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
+}
+
 func (p *YaegiPlugin) OnInit(plugDepencies *PluginComponents) error {
 
 	defPkgPath := "plugify/plugify"
 
 	p.symbols[defPkgPath] = make(map[string]reflect.Value)
 	p.symbols[defPkgPath]["Util"] = reflect.ValueOf(plugDepencies.Util)
-	p.symbols[defPkgPath]["Logger"] = reflect.ValueOf(plugDepencies.Logger)
+	p.symbols[defPkgPath]["Logger"] = reflect.ValueOf(NewLoggerWrapper(plugDepencies.Logger))
 
 	for _, comp := range plugDepencies.Components {
-		p.symbols[defPkgPath][strings.ToTitle(comp.Name())] = reflect.ValueOf(comp.Service())
+		plugDepencies.Logger.Info("Injecting component into plugin %s, component %s", p.Meta().ID, toTitle(comp.Name()))
+		p.symbols[defPkgPath][toTitle(comp.Name())] = reflect.ValueOf(comp.Service())
+		fields := MakeStructTypeMap(comp.Service())
+		for k, v := range fields {
+			plugDepencies.Logger.Info("Injecting component into plugin %s, component %s", p.Meta().ID, toTitle(k))
+			p.symbols[defPkgPath][toTitle(k)] = v
+		}
 	}
 
 	i := interp.New(interp.Options{})
@@ -163,7 +178,9 @@ func (p *YaegiPlugin) OnInit(plugDepencies *PluginComponents) error {
 	if err != nil {
 		return err
 	}
-	p.run = runFn.Interface().(func(any) (any, error))
+	p.run = func(a any) (any, error) {
+		return runFn.Interface().(func(map[string]any) (any, error))(map[string]any{"input": a})
+	}
 
 	methodsFn, err := i.Eval("Methods")
 	if err != nil {
@@ -175,7 +192,102 @@ func (p *YaegiPlugin) OnInit(plugDepencies *PluginComponents) error {
 	if err != nil {
 		return err
 	}
-	p.destroy = destroyFn.Interface().(func(any) error)
+	p.destroy = func(a any) error {
+		return destroyFn.Interface().(func(map[string]any) error)(map[string]any{"input": a})
+	}
 
 	return nil
+}
+
+// MakeStructTypeMap Scans the struct and its method parameters, collecting only custom struct types (non-primitive types, non-standard library).
+// Key format: <PkgNameCapitalized><TypeName>[#hash], with hash added only when the package paths differ but the keys are the same.
+func MakeStructTypeMap(sample any) map[string]reflect.Value {
+	result := make(map[string]reflect.Value)
+	keyPkgMap := make(map[string][]string)
+
+	t := reflect.TypeOf(sample)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+
+	// Scan fields recursively
+	buildFieldTypeMap(t, result, keyPkgMap)
+
+	// Scan method parameters
+	buildMethodTypeMap(reflect.TypeOf(sample), result, keyPkgMap)
+
+	return result
+}
+
+func buildFieldTypeMap(t reflect.Type, result map[string]reflect.Value, keyPkgMap map[string][]string) {
+	if t.Kind() != reflect.Struct {
+		return
+	}
+	for i := range t.NumField() {
+		f := t.Field(i)
+		ft := f.Type
+		addTypeToMap(ft, result, keyPkgMap)
+
+		if ft.Kind() == reflect.Struct {
+			buildFieldTypeMap(ft, result, keyPkgMap)
+		}
+	}
+}
+
+func buildMethodTypeMap(t reflect.Type, result map[string]reflect.Value, keyPkgMap map[string][]string) {
+	for i := 0; i < t.NumMethod(); i++ {
+		m := t.Method(i)
+		mt := m.Type
+		for j := 1; j < mt.NumIn(); j++ {
+			argType := mt.In(j)
+			addTypeToMap(argType, result, keyPkgMap)
+		}
+	}
+}
+
+// addTypeToMap adds the type to the result map if it's a custom struct type.
+func addTypeToMap(t reflect.Type, result map[string]reflect.Value, keyPkgMap map[string][]string) {
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	if t.Kind() != reflect.Struct {
+		return
+	}
+
+	pkg := t.PkgPath()
+	if pkg == "" || isStdLibType(pkg) {
+		return
+	}
+
+	typeName := t.Name()
+	if typeName == "" {
+		return
+	}
+
+	pkgBase := path.Base(pkg)
+	if pkgBase == "" {
+		pkgBase = "Main"
+	}
+
+	key := toTitle(pkgBase) + typeName
+
+	// If the key already exists but the package paths are different => add a hash suffix to distinguish
+	if prevPkg, ok := keyPkgMap[key]; ok && len(prevPkg) > 0 {
+		if !slices.Contains(prevPkg, pkg) {
+			key = fmt.Sprintf("%s%d", key, len(prevPkg))
+		} else {
+			return
+		}
+	}
+
+	result[key] = reflect.ValueOf(reflect.Zero(reflect.PointerTo(t)).Interface())
+	keyPkgMap[key] = append(keyPkgMap[key], pkg)
+}
+
+// isStdLibType checks if the package is from the standard library.
+func isStdLibType(pkg string) bool {
+	if slices.Contains([]string{"time", "fmt", "io", "os", "net", "strings", "bytes", "reflect", "sync"}, pkg) {
+		return true
+	}
+	return false
 }

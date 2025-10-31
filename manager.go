@@ -96,7 +96,10 @@ func (manager *PluginManager) LoadPlugin(meta *Meta, src any) (IPlugin, error) {
 		return nil, err
 	}
 
-	loadPlug.OnInit(manager.components)
+	err = loadPlug.OnInit(manager.components)
+	if err != nil {
+		return nil, err
+	}
 	existPlug, ok := manager.plugins.Get(meta.ID)
 	if ok {
 		existPlug.Upgrade(loadPlug)
