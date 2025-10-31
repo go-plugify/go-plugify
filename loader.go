@@ -159,6 +159,7 @@ func (p *YaegiPlugin) OnInit(plugDepencies *PluginComponents) error {
 		plugDepencies.Logger.Info("Injecting component into plugin %s, component %s", p.Meta().ID, toTitle(comp.Name()))
 		p.symbols[defPkgPath][toTitle(comp.Name())] = reflect.ValueOf(comp.Service())
 		if len(p.Meta().Components) > 0 {
+			// TODO: add cache
 			fields := MakeStructTypeMap(comp.Service(), p.Meta().Components)
 			for k, v := range fields {
 				plugDepencies.Logger.Info("Injecting component into plugin %s, component %s", p.Meta().ID, toTitle(k))
