@@ -64,7 +64,7 @@ func (l *NativePluginHTTPLoader) Load(meta *Meta, src any) (IPlugin, error) {
 	exports := sym.(PluginFunc)
 
 	plugin := &Plugin{
-		meta:        meta,
+		MetaInfo:    meta,
 		run:         exports.Run,
 		load:        exports.Load,
 		methods:     exports.Methods(),
@@ -122,7 +122,7 @@ func (l *YaegiHTTPLoader) Load(meta *Meta, src any) (IPlugin, error) {
 
 	plugin := &YaegiPlugin{
 		Plugin: &Plugin{
-			meta:        meta,
+			MetaInfo:    meta,
 			methods:     map[string]func(any) any{},
 			InstallTime: time.Now(),
 		},
@@ -186,7 +186,7 @@ func (p *YaegiPlugin) OnInit(plugDepencies *PluginComponents) error {
 	if err != nil {
 		return err
 	}
-	p.methods = methodsFn.Interface().(map[string]func(any) any)
+	p.methods = methodsFn.Interface().(func() map[string]func(any) any)()
 
 	destroyFn, err := i.Eval("Destroy")
 	if err != nil {

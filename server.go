@@ -138,7 +138,7 @@ func (server *HTTPServer) loadPluginFromHTTP(c HttpContext) (IPlugin, error) {
 
 	plugin, err := server.pluginManagers[serviceName].LoadPlugin(meta, c)
 	if err != nil {
-		return nil, fmt.Errorf("load plugin error: %v", err)
+		return nil, err
 	}
 	return plugin, nil
 }

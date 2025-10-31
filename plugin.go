@@ -11,6 +11,7 @@ type IPlugin interface {
 	OnDestroy(any) error
 	Meta() *Meta
 	Upgrade(IPlugin)
+	Method(string) (func(any) any, bool)
 }
 
 type PluginFunc interface {
@@ -30,7 +31,7 @@ type Meta struct {
 }
 
 type Plugin struct {
-	meta *Meta
+	MetaInfo *Meta `json:"meta"`
 
 	InstallTime time.Time `json:"install_time"`
 	UpgradeTime time.Time `json:"upgrade_time"`
@@ -44,7 +45,14 @@ type Plugin struct {
 }
 
 func (p *Plugin) Meta() *Meta {
-	return p.meta
+	return p.MetaInfo
+}
+
+func (p *Plugin) Method(name string) (func(any) any, bool) {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+	method, ok := p.methods[name]
+	return method, ok
 }
 
 func (p *Plugin) Upgrade(newPlug IPlugin) {
