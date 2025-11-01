@@ -70,7 +70,7 @@ func (server *HTTPServer) Run(c HttpContext) {
 		return
 	}
 
-	resp, err := plugin.OnRun(nil)
+	resp, err := plugin.OnRun(c)
 	if err != nil {
 		ErrorRet(c, fmt.Errorf("run plugin error: %v", err))
 		return
