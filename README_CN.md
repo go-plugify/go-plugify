@@ -42,10 +42,10 @@
 
 ## 介绍
 
-golang毫无疑问是近年来很成功且广泛应用的语言，他的诸多优点使得其被广泛用于网页以及手机应用的后端程序中。go-plugify是基于golang的插件框架，其本身利用了golang的原生plugin能力。
-使用 go-plugify 可以帮助您快速实现很多很棒的特性，解决很多开发上的问题，您不需要再为一个小修补而编译部署整个程序。您可以把功能修复验证的时间从小时分钟级缩减为秒级。而这只是其诸多能解决的问题之一。
+**go-plugify** 是基于golang的插件系统框架，他可以帮您将您的golang应用快速拥有插件能力。
+使用 **go-plugify** 可以帮助您利用插件系统，快速实现很多很棒的特性，解决很多开发上的问题，您不需要再为一个小修补而编译部署整个程序。您可以把功能修复验证的时间从小时分钟级缩减为秒级。您还可以拥有可插拔的脚本插件生态，探索适合您的插件。
 
-注意，目前 go-plugify 仍在迭代开发中，不建议用在生产环境。
+注意，目前 **go-plugify** 仍在迭代开发中，不建议用在生产环境。
 
 ### 特性
 
@@ -55,14 +55,9 @@ golang毫无疑问是近年来很成功且广泛应用的语言，他的诸多�
 
 - 更快的调试与修复周期：可在线快速验证修复或新逻辑。
 
-- 简单集成：可轻松接入现有的 Go 项目，几乎无需额外配置。
+- 简单集成：可轻松接入现有的 Go 项目，无需额外复杂配置。
 
 ## 快速上手
-
-### 依赖
-
-- 服务端程序需要cgo的支持，编译时加上：CGO_ENABLED=true
-- 程序需要在linux或mac上运行
 
 ### 上手
 
@@ -75,35 +70,73 @@ go install github.com/go-plugify/plugcli
 #### 2. 新建脚手架
 
 ```
-plugcli create myplugin
+plugcli -l zh create myplugin
 ```
 
 #### 3. 编写自己的插件
 
+客户端支持 `yaegi` 与 原生golang plugin的模式，更推荐使用 `yaegi`，但原生的golang plugin会有更大的扩展与支持，如果您要编写的逻辑不是特别复杂不会用上很多比较复杂golang系统包函数的话，那么使用 `yaegi` 是合适的。
+
+下面以 `yaegi` 为例子。
+
 ##### 3.1 客户端代码
 
-打开`plugin.go`文件，编写：
+打开`main.go`文件，编写：
+
 ```go
-...
-func (p Plugin) Run(args any) {
-	ctx := args.(HttpContext)
-	p.Logger().Info("Plugin %s is running, ctx %+v", p.Name, ctx)
-	p.Component("ginengine").(HttpRouter).ReplaceHandler("GET", "/", func(ctx context.Context) {
-		ctx.(HttpContext).JSON(200, map[string]string{"message": "Hello from plugin !!!"})
+package main
+
+import (
+	"context"
+
+	// plugify 包是宿主程序挂载的依赖包，在本地可以通过 replace 关联到对应的实际包
+	"plugify/plugify"
+)
+
+// 必须实现下面三个函数，Run，Methods，Destroy
+
+// Run 函数在加载后运行，是脚本的主要逻辑
+func Run(input map[string]any) (any, error) {
+	plugify.Logger.Info("Example plugin is running")
+	plugify.Ginengine.ReplaceHandler("GET", "/", func(ctx context.Context) {
+		plugify.Ginengine.NewHTTPContext(ctx).JSON(200, map[string]string{"message": "Hello from example plugin 2 !!!"})
 	})
-	cal := p.Component("calculator").(Calculator)
-	ctx.JSON(200, map[string]any{
-		"message":      "Plugin executed successfully",
-		"load pkg":     pkg.SayHello(),
-		"1 + 5 * 5 = ": cal.Add(1, cal.Mul(5, 5)),
-	})
+	plugify.BookService.AddBook(plugify.ServiceBook{ID: 1, Title: "The Great Gatsby", Author: "F. Scott Fitzgerald"})
+	plugify.BookService.AddBook(plugify.ServiceBook{ID: 2, Title: "Pride and Prejudice", Author: "Jane Austen"})
+	plugify.BookService.DeleteBook(1)
+	plugify.Logger.Info("Books in the service: %+v", plugify.BookService.ListBooks())
+	plugify.Logger.Info("Example plugin finished execution")
+	return map[string]any{
+		"message": "Plugin executed successfully",
+		"books":   plugify.BookService.ListBooks(),
+		"fictionBook": plugify.ServiceFictionBook{Book: plugify.ServiceBook{
+			ID:     1,
+			Title:  "Dune",
+			Author: "Frank Herbert",
+		}},
+	}, nil
 }
-...
+
+// Methods 函数返回内部的可供宿主函数调用的方法
+func Methods() map[string]func(any) any {
+	return map[string]func(any) any{
+		"hello": func(input any) any {
+			plugify.Logger.Info("Hello from the 'hello' method!")
+			return "Hello, World!"
+		},
+	}
+}
+
+// Destroy 将会在 unload 时被调用，用于卸载后回收资源
+func Destroy(input map[string]any) error {
+	plugify.Logger.Info("Example plugin is being destroyed")
+	return nil
+}
 ```
 
 ##### 3.2 服务端
 
-服务端是挂载端点，以接收插件的加载运行请求。可以根据自身的web框架来接入，如：
+服务端需要初始化，挂载路由接口，以接收插件的加载运行请求。可以根据自身的web框架来接入，如：
 
 ```go
 ...
@@ -121,12 +154,23 @@ func main() {
 
 func setupRouter() *gin.Engine {
 	r := gin.Default()
-	ginrouters := ginadapter.NewHttpRouter(r)
-	plugManager := goplugify.Init("default",
-		goplugify.ComponentWithName("ginengine", ginrouters),
-		goplugify.ComponentWithName("calculator", &Caclulator{}),
+
+	ginRouter := ginadapter.NewHttpRouter(r)
+
+	bookService := service.NewBookService()
+
+	// 初始化插件管理器，挂载相应的依赖组件
+	plugManager := goplugify.InitPluginManagers("default",
+		goplugify.ComponentWithName("ginengine", ginRouter),
+		goplugify.ComponentWithName("bookService", bookService),
+		goplugify.ComponentWithName("allKindBook", new(service.AllKindBook)),
 	)
-	plugManager.RegisterRoutes(ginrouters, "/api/v1")
+
+	registerCoreRoutes(r, plugManager, bookService)
+
+	// 挂载服务路由
+	goplugify.InitHTTPServer(plugManager).RegisterRoutes(ginRouter, "/api/v1")
+
 	return r
 }
 ...
@@ -134,13 +178,13 @@ func setupRouter() *gin.Engine {
 
 #### 4. 运行
 
-服务端编译记得加上：`CGO_ENABLED=true`。
+服务端，如果是原生golang plugin模式，编译记得加上：`CGO_ENABLED=true`。
 
-客户端运行，可以进入项目文件夹后执行：`make run`，但记得修改 `Makefile` 中的服务端地址。
+客户端运行，可以进入项目文件夹后执行：`make init`。更多命令信息，执行：`make help`。
 
 ### 例子
 
-查看：https://github.com/go-plugify/example
+更详细的例子说明，查看：https://github.com/go-plugify/example
 
 <img alt="example" src="https://github.com/go-plugify/example/blob/main/example.gif?raw=true" width="651">
 
