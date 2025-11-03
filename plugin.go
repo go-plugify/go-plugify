@@ -1,6 +1,7 @@
 package goplugify
 
 import (
+	"os"
 	"sync"
 	"time"
 )
@@ -10,8 +11,9 @@ type IPlugin interface {
 	OnRun(any) (any, error)
 	OnDestroy(any) error
 	Meta() *Meta
-	Upgrade(IPlugin)
+	Upgrade(PluginFunc)
 	Method(string) (func(any) any, bool)
+	ExportFunc() PluginFunc
 }
 
 type PluginFunc interface {
@@ -52,6 +54,9 @@ type Plugin struct {
 
 	InstallTime time.Time `json:"install_time"`
 	UpgradeTime time.Time `json:"upgrade_time"`
+	RunTime     time.Time `json:"latest_run_time"`
+	RunTimes    int       `json:"run_times"`
+	Host        string    `json:"run_host"`
 
 	run     func(any) (any, error)   `json:"-"`
 	load    func(any) error          `json:"-"`
@@ -65,6 +70,38 @@ func (p *Plugin) Meta() *Meta {
 	return p.MetaInfo
 }
 
+func (p *Plugin) ExportFunc() PluginFunc {
+	return &exportedPluginFunc{
+		run:     p.run,
+		load:    p.load,
+		methods: p.methods,
+		destroy: p.destroy,
+	}
+}
+
+type exportedPluginFunc struct {
+	run     func(any) (any, error)
+	load    func(any) error
+	methods map[string]func(any) any
+	destroy func(any) error
+}
+
+func (e *exportedPluginFunc) Run(req any) (any, error) {
+	return e.run(req)
+}
+
+func (e *exportedPluginFunc) Load(src any) error {
+	return e.load(src)
+}
+
+func (e *exportedPluginFunc) Methods() map[string]func(any) any {
+	return e.methods
+}
+
+func (e *exportedPluginFunc) Destroy(req any) error {
+	return e.destroy(req)
+}
+
 func (p *Plugin) Method(name string) (func(any) any, bool) {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
@@ -72,20 +109,15 @@ func (p *Plugin) Method(name string) (func(any) any, bool) {
 	return method, ok
 }
 
-func (p *Plugin) Upgrade(newPlug IPlugin) {
-
-	newPlugin, ok := newPlug.(*Plugin)
-	if !ok {
-		return
-	}
+func (p *Plugin) Upgrade(newPlugin PluginFunc) {
 
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
-	p.run = newPlugin.run
-	p.load = newPlugin.load
-	p.methods = newPlugin.methods
-	p.destroy = newPlugin.destroy
+	p.run = newPlugin.Run
+	p.load = newPlugin.Load
+	p.methods = newPlugin.Methods()
+	p.destroy = newPlugin.Destroy
 
 	p.UpgradeTime = time.Now()
 }
@@ -114,6 +146,9 @@ func (p *Plugin) OnRun(req any) (any, error) {
 	}
 	p.lock.Lock()
 	defer p.lock.Unlock()
+	p.RunTime = time.Now()
+	p.RunTimes++
+	p.Host, _ = os.Hostname()
 	return p.run(req)
 }
 

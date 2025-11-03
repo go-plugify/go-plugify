@@ -102,7 +102,7 @@ func (manager *PluginManager) LoadPlugin(meta *Meta, src any) (IPlugin, error) {
 	}
 	existPlug, ok := manager.plugins.Get(meta.ID)
 	if ok {
-		existPlug.Upgrade(loadPlug)
+		existPlug.Upgrade(loadPlug.ExportFunc())
 		return existPlug, nil
 	}
 	manager.plugins.Add(loadPlug)

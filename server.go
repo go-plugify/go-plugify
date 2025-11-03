@@ -36,6 +36,7 @@ func (server *HTTPServer) RegisterRoutes(router HttpRouter, routePrefix string) 
 	router.Add("POST", routePrefix+"/plugin/load", server.Load)
 	router.Add("GET", routePrefix+"/plugin/list", server.List)
 	router.Add("POST", routePrefix+"/plugin/unload", server.Unload)
+	router.Add("GET", routePrefix+"/plugin/components", server.Components)
 }
 
 func (server *HTTPServer) Init(c HttpContext) {
@@ -86,6 +87,29 @@ func (server *HTTPServer) List(c HttpContext) {
 
 	plugins := server.pluginManagers[serviceName].ListPlugins()
 	c.JSON(200, plugins)
+}
+
+func (server *HTTPServer) Components(c HttpContext) {
+	serviceName := c.Query("service")
+	if serviceName == "" {
+		serviceName = "default"
+	}
+	comps := make(PluginComponentItems, 0)
+	for _, comp := range server.pluginManagers[serviceName].Components().Components {
+		comps = append(comps, &PluginComponentItem{
+			Name:    comp.Name(),
+			PkgPath: GetPkgPathOfAny(comp),
+		})
+	}
+	comps = append(comps, &PluginComponentItem{
+		Name:    "Logger",
+		PkgPath: GetPkgPathOfAny(server.pluginManagers[serviceName].Components().GetLogger()),
+	})
+	comps = append(comps, &PluginComponentItem{
+		Name:    "Util",
+		PkgPath: GetPkgPathOfAny(server.pluginManagers[serviceName].Components().GetUtil()),
+	})
+	c.JSON(200, comps)
 }
 
 func (server *HTTPServer) Load(c HttpContext) {

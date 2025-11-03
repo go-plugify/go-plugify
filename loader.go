@@ -298,3 +298,14 @@ func isStdLibType(pkg string) bool {
 	}
 	return false
 }
+
+func GetPkgPathOfAny(a any) string {
+	return GetPkgPathOfType(reflect.TypeOf(a))
+}
+
+func GetPkgPathOfType(t reflect.Type) string {
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	return t.PkgPath()
+}
