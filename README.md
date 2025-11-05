@@ -1,6 +1,6 @@
 <a name="readme-top"></a>
 
-<a href="https://github.com/go-plugify/go-plugify/blob/main/README_CN.md">[中文介绍]</a>
+[[中文介绍]](https://github.com/go-plugify/go-plugify/blob/main/README_CN.md) | [Join Discord](https://discord.gg/B3FwBSQq)
 
 <h1 align="center">
   <a href="https://github.com/go-plugify/go-plugify">

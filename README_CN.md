@@ -1,5 +1,7 @@
 <a name="readme-top"></a>
 
+[[英文介绍]](https://github.com/go-plugify/go-plugify) | [Join Discord](https://discord.gg/B3FwBSQq)
+
 <h1 align="center">
   <a href="https://github.com/go-plugify/go-plugify">
     <picture>
@@ -199,6 +201,10 @@ func setupRouter() *gin.Engine {
 ## 社区
 
 添加微信：mongorz，备注：go-plugify 加入微信交流群。
+
+点击或搜索QQ群号加入QQ群：[823136692](https://qun.qq.com/universal-share/share?ac=1&authKey=C4MX6tSrUhKA2xX6M8IosY%2Bb2RyV45O15osUlidAptAwXBgA641FCsENb%2BfiVmki&busi_data=eyJncm91cENvZGUiOiI4MjMxMzY2OTIiLCJ0b2tlbiI6IjJGZmlVUzdsTGRCSytTNGNpajJkQ2F5djYyRUxMbVM1dFN5Y1RXYTRTMG1xejV5N0MrOUM5aEY3aGN4MXVCYmsiLCJ1aW4iOiIzMTc1NDI1NDgwIn0%3D&data=oAc646m4Q0_WTFE6cABXelyZYDd71nAaQ6nA91CQ3A1VNn83sDV5Z-2eXghHkbIXzG16UHCHF4szPTq3A2fhOw&svctype=4&tempid=h5_group_info)
+
+点击加入 Discord 社区：https://discord.gg/B3FwBSQq。
 
 ## 证书
 
