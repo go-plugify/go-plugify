@@ -216,6 +216,14 @@ For more detailed example projects, please visit:
 
 <img alt="example" src="https://github.com/go-plugify/example/blob/main/example.gif?raw=true" width="651">
 
+## Development Roadmap
+
+* [ ] Support for plugin persistence and permanent installation
+* [ ] Integrate service discovery to enable plugin broadcast installation and execution
+* [ ] Add Hook capabilities: introduce global middleware Hook points for web frameworks, and support custom Hook points
+* [ ] Improve the client-side HTML console to support plugin management and server node management
+* [ ] Support custom plugin UIs and APIs
+
 ## License
 
 This project is licensed under the **MIT license**.

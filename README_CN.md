@@ -188,6 +188,18 @@ func setupRouter() *gin.Engine {
 
 <img alt="example" src="https://github.com/go-plugify/example/blob/main/example.gif?raw=true" width="651">
 
+## 开发路线
+
+- [ ] 支持插件常驻与持久化安装
+- [ ] 接入服务发现能力，支持插件广播安装与运行
+- [ ] 增加Hook能力，增加web框架全局中间件Hook节点，支持自定义增加Hook节点
+- [ ] 完善客户端前端html控制台，支持插件管理与服务器节点管理等
+- [ ] 支持插件自定义ui与接口
+
+## 社区
+
+添加微信：mongorz，备注：go-plugify 加入微信交流群。
+
 ## 证书
 
 本项目使用 **MIT license**.
