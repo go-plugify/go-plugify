@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path"
 	"plugin"
@@ -16,15 +17,25 @@ import (
 	"github.com/traefik/yaegi/stdlib"
 )
 
+type LoaderType string
+
+const (
+	LoaderTypeNativePluginHTTP LoaderType = "native_plugin_http"
+	LoaderTypeYaegiHTTP        LoaderType = "yaegi_http"
+
+	LoaderTypeNativePluginFile LoaderType = "native_plugin_file"
+	LoaderTypeYaegiFile        LoaderType = "yaegi_file"
+)
+
 type Loader interface {
 	Load(meta *Meta, src any) (IPlugin, error)
-	Name() string
+	Name() LoaderType
 }
 
 type NativePluginHTTPLoader struct{}
 
-func (l *NativePluginHTTPLoader) Name() string {
-	return "native_plugin_http"
+func (l *NativePluginHTTPLoader) Name() LoaderType {
+	return LoaderTypeNativePluginHTTP
 }
 
 func (l *NativePluginHTTPLoader) Load(meta *Meta, src any) (IPlugin, error) {
@@ -38,11 +49,10 @@ func (l *NativePluginHTTPLoader) Load(meta *Meta, src any) (IPlugin, error) {
 		return nil, err
 	}
 
-	serviceName := httpContext.Query("service")
-	if serviceName == "" {
-		serviceName = "default"
-	}
+	return loadNativePluginOfContent(meta, pluginso)
+}
 
+func loadNativePluginOfContent(meta *Meta, pluginso []byte) (IPlugin, error) {
 	tmpfile, err := os.CreateTemp("", fmt.Sprintf("plugin_%d_*.so", time.Now().UnixNano()))
 	if err != nil {
 		return nil, err
@@ -105,8 +115,8 @@ func getPluginContent(c HttpContext) ([]byte, error) {
 
 type YaegiHTTPLoader struct{}
 
-func (l *YaegiHTTPLoader) Name() string {
-	return "yaegi_http"
+func (l *YaegiHTTPLoader) Name() LoaderType {
+	return LoaderTypeYaegiHTTP
 }
 
 func (l *YaegiHTTPLoader) Load(meta *Meta, src any) (IPlugin, error) {
@@ -308,4 +318,74 @@ func GetPkgPathOfType(t reflect.Type) string {
 		t = t.Elem()
 	}
 	return t.PkgPath()
+}
+
+type NativePluginFileLoader struct{}
+
+func (l *NativePluginFileLoader) Name() LoaderType {
+	return LoaderTypeNativePluginFile
+}
+
+func (l *NativePluginFileLoader) Load(meta *Meta, src any) (IPlugin, error) {
+	filePath, ok := src.(string)
+	if !ok {
+		return nil, ErrInvalidLoaderSource
+	}
+
+	pluginso, err := getFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	return loadNativePluginOfContent(meta, pluginso)
+}
+
+func getFile(url string) ([]byte, error) {
+	if strings.HasPrefix(url, "file://") {
+		filePath := strings.TrimPrefix(url, "file://")
+		return os.ReadFile(filePath)
+	}
+	return httpGet(url)
+}
+
+func httpGet(url string) ([]byte, error) {
+	if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
+		resp, err := http.DefaultClient.Get(url)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+		return io.ReadAll(resp.Body)
+	}
+	return nil, fmt.Errorf("unsupported URL scheme")
+}
+
+type YaegiFileLoader struct{}
+
+func (l *YaegiFileLoader) Name() LoaderType {
+	return LoaderTypeYaegiFile
+}
+
+func (l *YaegiFileLoader) Load(meta *Meta, src any) (IPlugin, error) {
+	filePath, ok := src.(string)
+	if !ok {
+		return nil, ErrInvalidLoaderSource
+	}
+
+	scriptContent, err := getFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	plugin := &YaegiPlugin{
+		Plugin: &Plugin{
+			MetaInfo:    meta,
+			methods:     map[string]func(any) any{},
+			InstallTime: time.Now(),
+		},
+		scriptContent: scriptContent,
+		symbols:       make(map[string]map[string]reflect.Value),
+	}
+
+	return plugin, nil
 }

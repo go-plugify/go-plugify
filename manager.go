@@ -28,10 +28,12 @@ func InitPluginManagers(serviceName string, components ...Component) PluginManag
 			Util:       new(Util),
 			Components: extendCompones,
 		},
-		loaders: make(map[string]Loader),
+		loaders: make(map[LoaderType]Loader),
 	}
 	managers[serviceName].AddLoader(new(NativePluginHTTPLoader))
 	managers[serviceName].AddLoader(new(YaegiHTTPLoader))
+	managers[serviceName].AddLoader(new(NativePluginFileLoader))
+	managers[serviceName].AddLoader(new(YaegiFileLoader))
 	return managers
 }
 
@@ -50,7 +52,7 @@ type Manager interface {
 type PluginManager struct {
 	plugins    *Plugins
 	components *PluginComponents
-	loaders    map[string]Loader
+	loaders    map[LoaderType]Loader
 
 	serviceName string
 }
@@ -123,3 +125,15 @@ func (manager *PluginManager) GetPlugin(pluginID string) (IPlugin, error) {
 }
 
 type PluginManagers map[string]Manager
+
+type LoadSource interface {
+	Source() LoadSourceType
+	Value() any
+}
+
+type LoadSourceType string
+
+const (
+	LoadSourceTypeFile LoadSourceType = "file"
+	LoadSourceTypeHTTP LoadSourceType = "http"
+)

@@ -29,7 +29,7 @@ type Meta struct {
 	Description string               `json:"description"`
 	Author      string               `json:"author"`
 	Version     string               `json:"version"`
-	Loader      string               `json:"loader"`
+	Loader      LoaderType           `json:"loader"`
 	Components  PluginComponentItems `json:"components"`
 }
 
