@@ -1,6 +1,7 @@
 package goplugify
 
 import (
+	"context"
 	"fmt"
 )
 
@@ -40,11 +41,11 @@ func InitPluginManagers(serviceName string, components ...Component) PluginManag
 type Manager interface {
 	AddLoader(loader Loader)
 
-	LoadPlugin(meta *Meta, src any) (IPlugin, error)
+	LoadPlugin(ctx context.Context, meta *Meta, src any) (IPlugin, error)
 	AddPlugin(plugin IPlugin)
 	ListPlugins() []IPlugin
 	GetPlugin(pluginID string) (IPlugin, error)
-	UnloadPlugin(pluginID string) error
+	UnloadPlugin(ctx context.Context, pluginID string) error
 
 	Components() *PluginComponents
 }
@@ -69,12 +70,12 @@ func (manager *PluginManager) AddPlugin(plugin IPlugin) {
 	manager.plugins.Add(plugin)
 }
 
-func (manager *PluginManager) UnloadPlugin(pluginID string) error {
+func (manager *PluginManager) UnloadPlugin(ctx context.Context, pluginID string) error {
 	plugin, ok := manager.plugins.Get(pluginID)
 	if !ok {
 		return fmt.Errorf("plugin %s not found", pluginID)
 	}
-	err := plugin.OnDestroy(nil)
+	err := plugin.OnDestroy(ctx)
 	if err != nil {
 		return err
 	}
@@ -82,7 +83,7 @@ func (manager *PluginManager) UnloadPlugin(pluginID string) error {
 	return nil
 }
 
-func (manager *PluginManager) LoadPlugin(meta *Meta, src any) (IPlugin, error) {
+func (manager *PluginManager) LoadPlugin(tx context.Context, meta *Meta, src any) (IPlugin, error) {
 
 	if meta == nil || meta.ID == "" || meta.Loader == "" {
 		return nil, ErrInvalidLoaderSource

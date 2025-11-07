@@ -1,6 +1,7 @@
 package goplugify
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -36,6 +37,8 @@ type HttpContext interface {
 	Query(key string) string
 	JSON(code int, obj any)
 	PostForm(key string) string
+
+	context.Context
 }
 
 func (server *HTTPServer) RegisterRoutes(router HttpRouter, routePrefix string) {
@@ -151,7 +154,7 @@ func (server *HTTPServer) Unload(c HttpContext) {
 	}
 
 	manager := server.pluginManagers[serviceName]
-	err := manager.UnloadPlugin(pluginID)
+	err := manager.UnloadPlugin(c, pluginID)
 	if err != nil {
 		ErrorRet(c, fmt.Errorf("unload plugin error: %v", err))
 		return
@@ -174,7 +177,7 @@ func (server *HTTPServer) loadPluginFromHTTP(c HttpContext) (IPlugin, error) {
 		return nil, fmt.Errorf("invalid meta: %v", err)
 	}
 
-	plugin, err := server.pluginManagers[serviceName].LoadPlugin(meta, c)
+	plugin, err := server.pluginManagers[serviceName].LoadPlugin(c, meta, c)
 	if err != nil {
 		return nil, err
 	}
