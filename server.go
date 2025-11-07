@@ -5,20 +5,28 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
+	"net/url"
+	"sync"
 )
 
 type HTTPServer struct {
 	pluginManagers PluginManagers
+
+	handlers map[string]Handler
+	lock     sync.RWMutex
 }
 
 func InitHTTPServer(pluginManagers PluginManagers) *HTTPServer {
 	return &HTTPServer{
 		pluginManagers: pluginManagers,
+		handlers:       make(map[string]Handler),
 	}
 }
 
+type Handler func(c HttpContext)
+
 type HttpRouter interface {
-	Add(method, route string, handler func(c HttpContext))
+	Add(method, route string, handler Handler)
 }
 
 type HttpContext interface {
@@ -37,6 +45,20 @@ func (server *HTTPServer) RegisterRoutes(router HttpRouter, routePrefix string) 
 	router.Add("GET", routePrefix+"/plugin/list", server.List)
 	router.Add("POST", routePrefix+"/plugin/unload", server.Unload)
 	router.Add("GET", routePrefix+"/plugin/components", server.Components)
+	router.Add("POST", routePrefix+"/plugin/gateway", server.Gateway)
+}
+
+func (server *HTTPServer) AddHandler(path string, handler Handler) {
+	server.lock.Lock()
+	defer server.lock.Unlock()
+	server.handlers[path] = handler
+}
+
+func (server *HTTPServer) GetHandler(path string) (Handler, bool) {
+	server.lock.RLock()
+	defer server.lock.RUnlock()
+	h, ok := server.handlers[path]
+	return h, ok
 }
 
 func (server *HTTPServer) Init(c HttpContext) {
@@ -165,6 +187,25 @@ func (server *HTTPServer) loadPluginFromHTTP(c HttpContext) (IPlugin, error) {
 		return nil, err
 	}
 	return plugin, nil
+}
+
+func (server *HTTPServer) Gateway(c HttpContext) {
+
+	path := c.Query("path")
+	if path == "" {
+		ErrorRet(c, fmt.Errorf("path is required"))
+		return
+	}
+
+	escapedPath, _ := url.PathUnescape(path)
+
+	handler, ok := server.GetHandler(escapedPath)
+	if !ok {
+		ErrorRet(c, fmt.Errorf("no handler for path: %s", path))
+		return
+	}
+
+	handler(c)
 }
 
 func ErrorRet(c HttpContext, err error) {
