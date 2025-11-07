@@ -187,7 +187,13 @@ func (p *YaegiPlugin) OnInit(plugDepencies *PluginComponents) error {
 		return err
 	}
 
-	runFn, err := i.Eval("Run")
+	packageName := ""
+	if !strings.Contains(string(p.scriptContent), "package main") {
+		replacer := strings.NewReplacer(".", "_", "-", "_")
+		packageName = replacer.Replace(p.Meta().ID) + "."
+	}
+
+	runFn, err := i.Eval(packageName + "Run")
 	if err != nil {
 		return err
 	}
@@ -195,13 +201,13 @@ func (p *YaegiPlugin) OnInit(plugDepencies *PluginComponents) error {
 		return runFn.Interface().(func(map[string]any) (any, error))(map[string]any{"input": a})
 	}
 
-	methodsFn, err := i.Eval("Methods")
+	methodsFn, err := i.Eval(packageName + "Methods")
 	if err != nil {
 		return err
 	}
 	p.methods = methodsFn.Interface().(func() map[string]func(any) any)()
 
-	destroyFn, err := i.Eval("Destroy")
+	destroyFn, err := i.Eval(packageName + "Destroy")
 	if err != nil {
 		return err
 	}
