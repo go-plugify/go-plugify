@@ -67,7 +67,7 @@ func (server *HTTPServer) Init(c HttpContext) {
 		ErrorRet(c, fmt.Errorf("load plugin error: %v", err))
 		return
 	}
-	resp, err := plugin.OnRun(nil)
+	resp, err := plugin.OnRun(c)
 	if err != nil {
 		ErrorRet(c, fmt.Errorf("run plugin error: %v", err))
 		return
@@ -76,10 +76,7 @@ func (server *HTTPServer) Init(c HttpContext) {
 }
 
 func (server *HTTPServer) Run(c HttpContext) {
-	serviceName := c.Query("service")
-	if serviceName == "" {
-		serviceName = "default"
-	}
+	serviceName := server.getService(c)
 
 	pluginID := c.Query("plugin_id")
 	if pluginID == "" {
@@ -102,20 +99,21 @@ func (server *HTTPServer) Run(c HttpContext) {
 }
 
 func (server *HTTPServer) List(c HttpContext) {
-	serviceName := c.Query("service")
-	if serviceName == "" {
-		serviceName = "default"
-	}
-
+	serviceName := server.getService(c)
 	plugins := server.pluginManagers[serviceName].ListPlugins()
 	c.JSON(200, plugins)
 }
 
-func (server *HTTPServer) Components(c HttpContext) {
+func (server *HTTPServer) getService(c HttpContext) string {
 	serviceName := c.Query("service")
 	if serviceName == "" {
 		serviceName = "default"
 	}
+	return serviceName
+}
+
+func (server *HTTPServer) Components(c HttpContext) {
+	serviceName := server.getService(c)
 	comps := make(PluginComponentItems, 0)
 	for _, comp := range server.pluginManagers[serviceName].Components().Components {
 		comps = append(comps, &PluginComponentItem{
@@ -144,10 +142,7 @@ func (server *HTTPServer) Load(c HttpContext) {
 }
 
 func (server *HTTPServer) Unload(c HttpContext) {
-	serviceName := c.Query("service")
-	if serviceName == "" {
-		serviceName = "default"
-	}
+	serviceName := server.getService(c)
 
 	pluginID := c.Query("plugin_id")
 	if pluginID == "" {
@@ -167,10 +162,7 @@ func (server *HTTPServer) Unload(c HttpContext) {
 }
 
 func (server *HTTPServer) loadPluginFromHTTP(c HttpContext) (IPlugin, error) {
-	serviceName := c.Query("service")
-	if serviceName == "" {
-		serviceName = "default"
-	}
+	serviceName := server.getService(c)
 
 	metaJSON := c.PostForm("meta")
 	if metaJSON == "" {
