@@ -17,7 +17,7 @@ type AuthHttpRouter struct {
 	auth   Authenticator
 }
 
-func (a *AuthHttpRouter) Add(method, path string, handler func(c HttpContext)) {
+func (a *AuthHttpRouter) Add(method, path string, handler Handler) {
 	a.router.Add(method, path, WithAuthMiddleware(handler, a.auth))
 }
 
@@ -32,7 +32,7 @@ type Authenticator interface {
 	Auth(c HttpContext) error
 }
 
-func WithAuthMiddleware(handler func(c HttpContext), auth Authenticator) func(c HttpContext) {
+func WithAuthMiddleware(handler Handler, auth Authenticator) Handler {
 	return func(c HttpContext) {
 		if err := auth.Auth(c); err != nil {
 			ErrorRet(c, fmt.Errorf("authentication failed: %v", err))
